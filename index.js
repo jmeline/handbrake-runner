@@ -1,10 +1,9 @@
+const util = require("util")
 const fsp = require("fs/promises")
-const { exec } = require("child_process")
+const { constants } = require("fs")
+const exec = util.promisify(require("child_process").exec)
 const path = require("path")
 const chalk = require("chalk")
-
-const outputDir = "output"
-const dir = __dirname + "/" + outputDir
 
 const createTitle = movie =>
   movie.name
@@ -32,46 +31,60 @@ async function parse(location) {
       return { input, output }
     })
     allFiles.push({ film: movieTitle, files })
-    // exec(`HandBrakeCLI -i ${input} -o ${output}       \
-    //   --preset="H.265 MKV 720p30"                     \
-    //   --quality 20                                    \
-    //   --encoder x265                                  \
-    //   -B 192                                          \
-    //   --encoder-preset veryslow                       \
-    //   --keep-display-aspect                           \
-    //   -x threads=23`)
-    // }
   }
+  return allFiles
+}
 
+const debug = (allFiles) => {
   allFiles.forEach(({film, files}) => {
     console.log("===============================")
     console.log(chalk.bold.yellow(film))
     console.log("===============================")
     console.log(files)
   });
-  //console.log({ allFiles })
+  return allFiles
+}
+
+const executeHandbrake = async (input, output) => {
+  const promise = exec(
+    `HandBrakeCLI -i ${input} -o ${output}          \
+    --preset="H.265 MKV 720p30"                     \
+    --quality 20                                    \
+    --encoder x265                                  \
+    -B 192                                          \
+    --encoder-preset veryslow                       \
+    --keep-display-aspect                           \
+    -x threads=23`)
+  const child = promise.child
+  child.stdout.on("data", data => console.log(chalk.greenBright(data)))
+  child.stderr.on("data", data => console.log(chalk.red(data)))
+  child.on("close", data => console.log(chalk.green("Success! ", data)))
+  const { stderr, stdout} = await promise
+
+  if (stderr) {
+    console.log(chalk.bold.red(stderr))
+  }
+  if (stdout) {
+    console.log(chalk.bold.greenBright(stdout))
+  }
+}
+
+const runViaHandbrakeCli = async allFiles => {
+  for (const {input, output} of allFiles.flatMap(({files}) => files)) {
+    try {
+      await fsp.access(output, constants.F_OK)
+      console.log(chalk.gray("Skipping " + input + " as it already exists"))
+      continue
+    } catch {
+      console.log(chalk.gray("Encoding " + input + " as it doesn't exist"))
+    }
+    await executeHandbrake(input, output)
+  }
 }
 
 console.log(chalk.bold.cyan("MKVFolder: " + process.env.MKVFolder));
 console.log(chalk.bold.cyan("OUTPUT: " + process.env.OUTPUT));
 parse(process.env.MKVFolder)
+  .then(debug)
+  .then(runViaHandbrakeCli)
   .catch(console.error)
-
-// fsp.access(dir, fs.constants.F_OK, err => {
-//   console.log("MKVFolder: " + chalk.bold.cyan(process.env.MKVFolder));
-//   console.log(chalk.bold.cyan("OUTPUT: " + process.env.OUTPUT));
-//   // if (err) {
-//   //   console.error(`Directory: ${dir} does not exist`)
-//   //
-//   //   // create folder for movies
-//   // } else {
-//   //   console.log(`Directory: ${dir} does exist`)
-//   // }
-
-//   parse(process.env.MKVFolder)
-//     .catch(console.error)
-// })
-// if () {
-//   fs.mkdirSync()
-
-// }
