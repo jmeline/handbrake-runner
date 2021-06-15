@@ -1,7 +1,6 @@
-const util = require("util")
 const fsp = require("fs/promises")
 const { constants } = require("fs")
-const exec = util.promisify(require("child_process").exec)
+const { spawn } = require("child_process")
 const path = require("path")
 const chalk = require("chalk")
 
@@ -45,28 +44,45 @@ const debug = (allFiles) => {
   return allFiles
 }
 
-const executeHandbrake = async (input, output) => {
-  const promise = exec(
-    `HandBrakeCLI -i ${input} -o ${output}          \
-    --preset="H.265 MKV 720p30"                     \
-    --quality 20                                    \
-    --encoder x265                                  \
-    -B 192                                          \
-    --encoder-preset veryslow                       \
-    --keep-display-aspect                           \
-    -x threads=23`)
-  const child = promise.child
-  child.stdout.on("data", data => console.log(chalk.greenBright(data)))
-  child.stderr.on("data", data => console.log(chalk.red(data)))
-  child.on("close", data => console.log(chalk.green("Success! ", data)))
-  const { stderr, stdout} = await promise
+const executeHandbrake = (input, output) => {
+  const args = `
+    -i ${input}                   \
+    -o ${output}                  \
+    --preset="H.265 MKV 720p30"   \
+    --quality 20                  \
+    --encoder x265                \
+    -B 192                        \
+    --encoder-preset veryslow     \
+    --keep-display-aspect         \
+    -x threads=23
+  `
+  const args2 = [
+    `-i ${input}`,
+    `-o ${output}`,
+    '--preset="H.265 MKV 720p30"',
+    "--quality 20",
+    "--encoder x265",
+    "-B 192",
+    "--encoder-preset veryslow",
+    "--keep-display-aspect",
+    "-x threads=23"
+  ]
+  console.log(chalk.green(`HandBrakeCLI ${args}`))
+  return new Promise((resolve, reject) => {
+    const process = spawn("HandBrakeCLI", [args])
 
-  if (stderr) {
-    console.log(chalk.bold.red(stderr))
-  }
-  if (stdout) {
-    console.log(chalk.bold.greenBright(stdout))
-  }
+    process.stdout.on("data", data => {
+      console.log(chalk.greenBright(data))
+    })
+    process.stderr.on("data", err => {
+      console.log(chalk.red(err.toString()))
+      reject();
+    })
+    process.on("close", data => {
+      console.log(chalk.green("Success! ", data))
+      resolve();
+    })
+  })
 }
 
 const runViaHandbrakeCli = async allFiles => {
