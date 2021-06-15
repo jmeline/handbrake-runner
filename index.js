@@ -42,9 +42,10 @@ const executeHandbrake = (input, output) => {
       preset: "H.265 MKV 720p30",
       encoder: "x265",
       ab: 192,
-      "encoder-preset": "veryslow",
+      "encoder-preset": "placebo",
       "keep-display-aspect": true,
-      X: "threads=23"
+      X: "threads=23",
+      verbose: true
     })
       .on("error", err => console.log(chalk.red(err.toString())))
       .on("progress", progress => {
