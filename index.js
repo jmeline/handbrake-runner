@@ -1,8 +1,8 @@
 const fsp = require("fs/promises")
 const { constants } = require("fs")
-const { spawn } = require("child_process")
 const path = require("path")
 const chalk = require("chalk")
+const hbjs = require("handbrake-js")
 
 const createTitle = movie =>
   movie.name
@@ -10,7 +10,7 @@ const createTitle = movie =>
     .replace(/_/g, ".")
     .toLocaleLowerCase();
 
-async function parse(location) {
+const parse = async location =>  {
   const dir = await fsp.opendir(location)
   const allFiles = []
   for await (const movie of dir) {
@@ -34,54 +34,30 @@ async function parse(location) {
   return allFiles
 }
 
-const debug = (allFiles) => {
-  allFiles.forEach(({film, files}) => {
-    console.log("===============================")
-    console.log(chalk.bold.yellow(film))
-    console.log("===============================")
-    console.log(files)
-  });
-  return allFiles
-}
-
 const executeHandbrake = (input, output) => {
-  const args = `
-    -i ${input}                   \
-    -o ${output}                  \
-    --preset="H.265 MKV 720p30"   \
-    --quality 20                  \
-    --encoder x265                \
-    -B 192                        \
-    --encoder-preset veryslow     \
-    --keep-display-aspect         \
-    -x threads=23
-  `
-  const args2 = [
-    `-i ${input}`,
-    `-o ${output}`,
-    '--preset="H.265 MKV 720p30"',
-    "--quality 20",
-    "--encoder x265",
-    "-B 192",
-    "--encoder-preset veryslow",
-    "--keep-display-aspect",
-    "-x threads=23"
-  ]
-  console.log(chalk.green(`HandBrakeCLI ${args}`))
   return new Promise((resolve, reject) => {
-    const process = spawn("HandBrakeCLI", [args])
-
-    process.stdout.on("data", data => {
-      console.log(chalk.greenBright(data))
+    hbjs.spawn({
+      input,
+      output,
+      preset: "H.265 MKV 720p30",
+      encoder: "x265",
+      ab: 192,
+      "encoder-preset": "veryslow",
+      "keep-display-aspect": true,
+      X: "threads=23"
     })
-    process.stderr.on("data", err => {
-      console.log(chalk.red(err.toString()))
-      reject();
-    })
-    process.on("close", data => {
-      console.log(chalk.green("Success! ", data))
-      resolve();
-    })
+      .on("error", err => console.log(chalk.red(err.toString())))
+      .on("progress", progress => {
+        console.log(
+          chalk.magenta(output),
+          chalk.blueBright(progress.task),
+          "avgFps: ", chalk.green(progress.avgFps),
+          "fps: ", chalk.green(progress.fps),
+          chalk.green(progress.percentComplete), "% ",
+          chalk.green(progress.eta))
+      })
+      .on('end', () => resolve())
+      .on('error', () => reject())
   })
 }
 
@@ -96,6 +72,16 @@ const runViaHandbrakeCli = async allFiles => {
     }
     await executeHandbrake(input, output)
   }
+}
+
+const debug = (allFiles) => {
+  allFiles.forEach(({film, files}) => {
+    console.log("===============================")
+    console.log(chalk.bold.yellow(film))
+    console.log("===============================")
+    console.log(files)
+  });
+  return allFiles
 }
 
 console.log(chalk.bold.cyan("MKVFolder: " + process.env.MKVFolder));
