@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "MKVFolder=~/devices/nas2/dvds OUTPUT=~/devices/nas2/output node index.js",
+    "startDVD": "PRESET='H.265 MKV 720p30' MKVFolder=~/devices/nas2/dvds OUTPUT=~/devices/nas2/output node index.js",
+    "startBluRay": "PRESET='H.265 MKV 1080p30' MKVFolder=~/devices/nas2/bluray OUTPUT=~/devices/nas2/output node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",

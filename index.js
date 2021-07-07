@@ -35,27 +35,28 @@ const parse = async location =>  {
 }
 
 const executeHandbrake = (input, output) => {
+  const options = {
+    input,
+    output,
+    // preset: "H.265 MKV 720p30",
+    preset: process.env.PRESET,
+    // encoder: "x265",
+    // ab: 192,
+    // encopts: "threads=8",
+    "encoder-preset": "veryslow",
+    // "keep-display-aspect": true
+  }
   return new Promise((resolve, reject) => {
-    hbjs.spawn({
-      input,
-      output,
-      preset: "H.265 MKV 720p30",
-      encoder: "x265",
-      ab: 192,
-      "encoder-preset": "placebo",
-      "keep-display-aspect": true,
-      X: "threads=23",
-      verbose: true
-    })
+    hbjs.spawn(options)
       .on("error", err => console.log(chalk.red(err.toString())))
       .on("progress", progress => {
         console.log(
           chalk.magenta(output),
           chalk.blueBright(progress.task),
-          "avgFps: ", chalk.green(progress.avgFps),
+          "% ", chalk.green(progress.percentComplete),
+          "rem: ", chalk.green(progress.eta),
           "fps: ", chalk.green(progress.fps),
-          chalk.green(progress.percentComplete), "% ",
-          chalk.green(progress.eta))
+        )
       })
       .on('end', () => resolve())
       .on('error', () => reject())
